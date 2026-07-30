@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
         })
         .select("id, email, name, credits, plan")
         .single();
-      if (error || !user) {
-        return NextResponse.json({ error: "Failed to create account" }, { status: 500 });
+          if (error || !user) {
+        return NextResponse.json({ error: "Failed to create account: " + (error?.message || "unknown") }, { status: 500 });
       }
       const response = NextResponse.json({ user });
       response.cookies.set("session", token, { httpOnly: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 30, path: "/" });
