@@ -53,11 +53,14 @@ export default function Page() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center animate-pulse">
-            <svg className="w-5 h-5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.912 5.813h6.112l-4.958 3.523 1.912 5.813L12 14.626l-4.978 3.523 1.912-5.813L3.976 8.813h6.112z"/></svg>
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center animate-pulse">
+              <svg className="w-6 h-6 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.912 5.813h6.112l-4.958 3.523 1.912 5.813L12 14.626l-4.978 3.523 1.912-5.813L3.976 8.813h6.112z"/></svg>
+            </div>
+            <div className="absolute -inset-3 rounded-2xl border border-emerald-400/10 animate-ping" />
           </div>
-          <p className="text-white/40 text-sm">Loading...</p>
+          <p className="text-white/30 text-sm">Loading ContentStudio...</p>
         </div>
       </div>
     );
