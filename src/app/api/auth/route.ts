@@ -1,6 +1,16 @@
-import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
+
+function getSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  console.log("[AUTH DEBUG] URL set:", !!url, "| Key set:", !!key);
+  if (!url || !key) {
+    throw new Error("Missing Supabase env vars. URL: " + !!url + ", Key: " + !!key);
+  }
+  return createClient(url, key);
+}
 
 function generateToken() {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
@@ -8,6 +18,7 @@ function generateToken() {
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getSupabaseClient();
     const body = await request.json();
     const { action, email, password, name } = body;
 
@@ -16,98 +27,21 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "signup") {
-      const { data: existing } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", email)
-        .single();
+      const { data: existing, error: exErr } = await supabase.from("users").select("id").eq("email", email).single();
+      if (exErr && exErr.code !== "PGRST116") {
+        console.error("[AUTH] Check existing error:", JSON.stringify(exErr));
+      }
       if (existing) {
         return NextResponse.json({ error: "Email already exists" }, { status: 409 });
       }
+
       const hashedPassword = await bcrypt.hash(password, 10);
       const token = generateToken();
-      const { data: user, error } = await supabase
-        .from("users")
-        .insert({
-          email,
-          password: hashedPassword,
-          name: name || email.split("@")[0],
-          session_token: token,
-          credits: 10,
-          plan: "free",
-        })
-        .select("id, email, name, credits, plan")
-        .single();
-          if (error || !user) {
-        return NextResponse.json({ error: "Failed to create account: " + (error?.message || "unknown") }, { status: 500 });
-      }
-      const response = NextResponse.json({ user });
-      response.cookies.set("session", token, { httpOnly: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 30, path: "/" });
-      return response;
-    }
+      const { data: user, error } = await supabase.from("users").insert({
+        email, password: hashedPassword, name: name || email.split("@")[0],
+        session_token: token, credits: 10, plan: "free",
+      }).select("id, email, name, credits, plan").single();
 
-    if (action === "login") {
-      const { data: user } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", email)
-        .single();
-      if (!user) {
-        return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-      }
-      const valid = await bcrypt.compare(password, user.password);
-      if (!valid) {
-        return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-      }
-      const token = generateToken();
-      const { error } = await supabase
-        .from("users")
-        .update({ session_token: token })
-        .eq("id", user.id);
       if (error) {
-        return NextResponse.json({ error: "Login failed" }, { status: 500 });
-      }
-      const response = NextResponse.json({ user: { id: user.id, email: user.email, name: user.name, credits: user.credits, plan: user.plan } });
-      response.cookies.set("session", token, { httpOnly: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 30, path: "/" });
-      return response;
-    }
-
-    if (action === "logout") {
-      const session = request.cookies.get("session")?.value;
-      if (session) {
-        await supabase
-          .from("users")
-          .update({ session_token: null })
-          .eq("session_token", session);
-      }
-      const response = NextResponse.json({ success: true });
-      response.cookies.set("session", "", { httpOnly: true, sameSite: "lax", maxAge: 0, path: "/" });
-      return response;
-    }
-
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  } catch (error) {
-    console.error("Auth error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
-export async function GET(request: NextRequest) {
-  try {
-    const session = request.cookies.get("session")?.value;
-    if (!session) {
-      return NextResponse.json({ user: null });
-    }
-    const { data: user } = await supabase
-      .from("users")
-      .select("id, email, name, credits, plan")
-      .eq("session_token", session)
-      .single();
-    if (!user) {
-      return NextResponse.json({ user: null });
-    }
-    return NextResponse.json({ user });
-  } catch {
-    return NextResponse.json({ user: null });
-  }
-}
+        console.error("[AUTH] Signup error:", JSON.stringify(error));
+        return NextResponse.json({ error: "Sig
