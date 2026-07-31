@@ -4,7 +4,6 @@ export async function GET() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
-
   return NextResponse.json({
     supabaseUrlSet: !!url,
     supabaseUrlPreview: url ? url.substring(0, 50) + "..." : "NOT SET",

@@ -8,7 +8,7 @@ function db() {
   return createClient(u, k);
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(req) {
   try {
     const supabase = db();
     const s = req.cookies.get("session")?.value;
@@ -16,12 +16,12 @@ export async function GET(req: NextRequest) {
     const { data: user } = await supabase.from("users").select("id").eq("session_token", s).single();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { data: gens } = await supabase.from("generations").select("id,type,topic,tone,length,output,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50);
-    const mapped = (gens || []).map((g: any) => ({ ...g, createdAt: g.created_at }));
+    const mapped = (gens || []).map((g) => ({ ...g, createdAt: g.created_at }));
     return NextResponse.json({ generations: mapped });
   } catch (e) { console.error(e); return NextResponse.json({ error: "Failed" }, { status: 500 }); }
 }
 
-export async function DELETE(req: NextRequest) {
+export async function DELETE(req) {
   try {
     const supabase = db();
     const s = req.cookies.get("session")?.value;
@@ -31,4 +31,8 @@ export async function DELETE(req: NextRequest) {
     const { id } = await req.json();
     const { data: gen } = await supabase.from("generations").select("id").eq("id", id).eq("user_id", user.id).single();
     if (!gen) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const { e
+    const { error } = await supabase.from("generations").delete().eq("id", id);
+    if (error) return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch (e) { console.error(e); return NextResponse.json({ error: "Failed" }, { status: 500 }); }
+}
