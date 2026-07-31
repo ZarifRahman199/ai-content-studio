@@ -2,46 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 
-function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  console.log("[AUTH DEBUG] URL set:", !!url, "| Key set:", !!key);
-  if (!url || !key) {
-    throw new Error("Missing Supabase env vars. URL: " + !!url + ", Key: " + !!key);
-  }
-  return createClient(url, key);
+function db() {
+  const u = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const k = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!u || !k) throw new Error("Missing Supabase env vars");
+  return createClient(u, k);
 }
 
-function generateToken() {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
-}
+function tk() { return Math.random().toString(36).substring(2) + Date.now().toString(36); }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
-    const body = await request.json();
-    const { action, email, password, name } = body;
-
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email and password required" }, { status: 400 });
-    }
+    const supabase = db();
+    const { action, email, password, name } = await req.json();
+    if (!email || !password) return NextResponse.json({ error: "Email and password required" }, { status: 400 });
 
     if (action === "signup") {
-      const { data: existing, error: exErr } = await supabase.from("users").select("id").eq("email", email).single();
-      if (exErr && exErr.code !== "PGRST116") {
-        console.error("[AUTH] Check existing error:", JSON.stringify(exErr));
-      }
-      if (existing) {
-        return NextResponse.json({ error: "Email already exists" }, { status: 409 });
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const token = generateToken();
-      const { data: user, error } = await supabase.from("users").insert({
-        email, password: hashedPassword, name: name || email.split("@")[0],
-        session_token: token, credits: 10, plan: "free",
-      }).select("id, email, name, credits, plan").single();
-
-      if (error) {
-        console.error("[AUTH] Signup error:", JSON.stringify(error));
-        return NextResponse.json({ error: "Sig
+      const { data: ex } = await supabase.from("users").select("id").eq("email", email).single();
+      if (ex) return NextResponse.json({ error: "Email already exists" }, { status: 409 });
+      const hp = await bcrypt.hash(password, 10);
+      const token = tk();
+      const { data: user, error } = await supabase.from("users").insert({ email, password: hp, name: name || email.split("@")[0], session_token: token, credits: 10, plan: "free" }).select("id, email, name, credits, plan").single();
+      if (error || !user) return NextResponse.json({ error: "Signup failed: " + (error?.message || "DB error") }, { status: 500 });
+      const r = NextResponse.json({ user });
+      r.cookies.set("session", token, { httpOnly: true, sameSite: "lax", maxAge: 2592000, path: "/" });
+  
