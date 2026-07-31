@@ -9,17 +9,18 @@ function db() {
 }
 
 async function ai(topic, system) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return "No API key configured. Add GEMINI_API_KEY in Vercel.";
+  const key = process.env.GROQ_API_KEY;
+  if (!key) return "No AI key configured. Add GROQ_API_KEY in Vercel.";
   try {
-    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=" + key, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: system + "\n\nTopic: " + topic }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 1024 } }),
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "system", content: system }, { role: "user", content: topic }], temperature: 0.8, max_tokens: 1024 }),
     });
     const body = await r.text();
-    if (!r.ok) return "Gemini API error (status " + r.status + "): " + body.substring(0, 200);
+    if (!r.ok) return "Groq API error (status " + r.status + "): " + body.substring(0, 200);
     const d = JSON.parse(body);
-    return d.candidates?.[0]?.content?.parts?.[0]?.text || "AI returned empty. Try again.";
+    return d.choices?.[0]?.message?.content || "AI returned empty. Try again.";
   } catch (e) {
     return "Fetch error: " + (e?.message || String(e));
   }
