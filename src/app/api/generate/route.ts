@@ -10,16 +10,19 @@ function db() {
 
 async function ai(topic, system) {
   const key = process.env.GEMINI_API_KEY;
-  if (!key) return "Preview: " + topic + "\n\n(Add GEMINI_API_KEY in Vercel for real AI)";
+  if (!key) return "No API key configured. Add GEMINI_API_KEY in Vercel.";
   try {
     const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + key, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: system + "\n\nTopic: " + topic }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 1024 } }),
     });
-    if (!r.ok) return "Preview: " + topic;
-    const d = await r.json();
-    return d.candidates?.[0]?.content?.parts?.[0]?.text || "Failed. Try again.";
-  } catch { return "Preview: " + topic; }
+    const body = await r.text();
+    if (!r.ok) return "Gemini API error (status " + r.status + "): " + body.substring(0, 200);
+    const d = JSON.parse(body);
+    return d.candidates?.[0]?.content?.parts?.[0]?.text || "AI returned empty. Try again.";
+  } catch (e) {
+    return "Fetch error: " + (e?.message || String(e));
+  }
 }
 
 const PROMPTS = { social: "Create engaging social media post with emojis, hashtags, and CTA.", blog: "Write a blog draft with clear headings, intro, key points, and conclusion.", email: "Write a marketing email with subject line, engaging opening, value, and CTA.", ad: "Write ad copy with headline, value proposition, urgency, and strong CTA." };
