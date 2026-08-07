@@ -139,7 +139,7 @@ export default function TermsOfService() {
               If you have any questions about these Terms of Service, please contact us at:
             </p>
             <div className="mt-3 p-4 rounded-xl bg-white/5 border border-white/10">
-              <p className="text-white"><strong>Email:</strong> support@contentstudio.ai</p>
+              <p className="text-white"><strong>Email:</strong> Zarifgaming142@gmail.com</p>
               <p className="text-white mt-1"><strong>Response Time:</strong> Within 48 hours on business days</p>
             </div>
           </section>
