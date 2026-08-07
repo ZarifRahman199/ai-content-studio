@@ -1,38 +1,51 @@
+import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-function db() {
-  const u = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const k = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!u || !k) throw new Error("Missing Supabase env vars");
-  return createClient(u, k);
+export async function GET(request: NextRequest) {
+  try {
+    const session = request.cookies.get("session")?.value;
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await db.user.findUnique({ where: { sessionToken: session } });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const generations = await db.generation.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+
+    return NextResponse.json({ generations });
+  } catch {
+    return NextResponse.json({ error: "Failed to fetch generations" }, { status: 500 });
+  }
 }
 
-export async function GET(req) {
+export async function DELETE(request: NextRequest) {
   try {
-    const supabase = db();
-    const s = req.cookies.get("session")?.value;
-    if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const { data: user } = await supabase.from("users").select("id").eq("session_token", s).single();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const { data: gens } = await supabase.from("generations").select("id,type,topic,tone,length,output,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50);
-    const mapped = (gens || []).map((g) => ({ ...g, createdAt: g.created_at }));
-    return NextResponse.json({ generations: mapped });
-  } catch (e) { console.error(e); return NextResponse.json({ error: "Failed" }, { status: 500 }); }
-}
+    const session = request.cookies.get("session")?.value;
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-export async function DELETE(req) {
-  try {
-    const supabase = db();
-    const s = req.cookies.get("session")?.value;
-    if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const { data: user } = await supabase.from("users").select("id").eq("session_token", s).single();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const { id } = await req.json();
-    const { data: gen } = await supabase.from("generations").select("id").eq("id", id).eq("user_id", user.id).single();
-    if (!gen) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const { error } = await supabase.from("generations").delete().eq("id", id);
-    if (error) return NextResponse.json({ error: "Failed" }, { status: 500 });
+    const user = await db.user.findUnique({ where: { sessionToken: session } });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await request.json();
+    const generation = await db.generation.findFirst({ where: { id, userId: user.id } });
+    if (!generation) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    await db.generation.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch (e) { console.error(e); return NextResponse.json({ error: "Failed" }, { status: 500 }); }
+  } catch {
+    return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
+  }
 }
