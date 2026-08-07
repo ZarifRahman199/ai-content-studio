@@ -474,7 +474,6 @@ export function Dashboard({ user, onLogout }: { user: User; onLogout: () => void
             <a href="/privacy" className="text-gray-400 hover:text-gray-700 transition-colors">Privacy</a>
             <a href="/terms" className="text-gray-400 hover:text-gray-700 transition-colors">Terms</a>
             <a href="mailto:Zarifgaming142@gmail.com" className="text-gray-400 hover:text-gray-700 transition-colors">Support</a>
-            <a href="mailto:Zarifgaming142@gmail.com?subject=Business%20Inquiry" className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 px-2.5 py-0.5 rounded-full hover:bg-emerald-500/20 transition-all">Business</a>
           </div>
         </div>
       </footer>
