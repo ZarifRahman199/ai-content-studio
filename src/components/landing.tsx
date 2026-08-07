@@ -175,7 +175,7 @@ export function Landing({ onGetStarted, onLogin }: LandingProps) {
             </motion.h2>
             <motion.p variants={fadeUp} custom={1} className="text-white/50 text-lg">Start free, upgrade when you need more.</motion.p>
           </motion.div>
-          <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
             <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }}>
               <motion.div variants={fadeUp} custom={0}>
                 <Card className="bg-white/5 border-white/10 h-full">
@@ -225,6 +225,30 @@ export function Landing({ onGetStarted, onLogin }: LandingProps) {
                 </Card>
               </motion.div>
             </motion.div>
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }}>
+              <motion.div variants={fadeUp} custom={2}>
+                <Card className="bg-white/5 border-white/10 h-full">
+                  <CardContent className="p-6 flex flex-col h-full">
+                    <h3 className="text-white font-semibold text-lg mb-1">Business</h3>
+                    <p className="text-white/40 text-sm mb-4">For teams & enterprises</p>
+                    <div className="mb-6">
+                      <span className="text-4xl font-bold text-white">$49</span>
+                      <span className="text-white/40">/month</span>
+                    </div>
+                    <ul className="space-y-3 mb-8 flex-1">
+                      {["Unlimited credits", "All content types", "All tones & lengths", "Priority generation", "Generation history", "Priority email support", "API access", "Team collaboration"].map((item) => (
+                        <li key={item} className="flex items-center gap-2 text-sm text-white/60">
+                          <Check className="w-4 h-4 text-emerald-400 shrink-0" />{item}
+                        </li>
+                      ))}
+                    </ul>
+                    <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10" onClick={onGetStarted}>
+                      Contact Sales
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -260,7 +284,6 @@ export function Landing({ onGetStarted, onLogin }: LandingProps) {
               <a href="/privacy" className="text-white/40 hover:text-white transition-colors">Privacy Policy</a>
               <a href="/terms" className="text-white/40 hover:text-white transition-colors">Terms of Service</a>
               <a href="mailto:Zarifgaming142@gmail.com" className="text-white/40 hover:text-white transition-colors">Support</a>
-              <a href="mailto:Zarifgaming142@gmail.com?subject=Business%20Inquiry" className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full hover:bg-emerald-500/20 transition-all">Business</a>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-white/5 pt-6">
