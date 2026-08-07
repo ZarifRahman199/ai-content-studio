@@ -260,6 +260,7 @@ export function Landing({ onGetStarted, onLogin }: LandingProps) {
               <a href="/privacy" className="text-white/40 hover:text-white transition-colors">Privacy Policy</a>
               <a href="/terms" className="text-white/40 hover:text-white transition-colors">Terms of Service</a>
               <a href="mailto:Zarifgaming142@gmail.com" className="text-white/40 hover:text-white transition-colors">Support</a>
+              <a href="mailto:Zarifgaming142@gmail.com?subject=Business%20Inquiry" className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full hover:bg-emerald-500/20 transition-all">Business</a>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-white/5 pt-6">
