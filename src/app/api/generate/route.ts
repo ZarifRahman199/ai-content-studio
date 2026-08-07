@@ -1,51 +1,148 @@
+import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-function db() {
-  const u = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const k = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!u || !k) throw new Error("Missing Supabase env vars");
-  return createClient(u, k);
-}
+const PROMPTS: Record<string, string> = {
+  social: `You are a social media content expert. Create engaging social media content based on the user's topic.
 
-async function ai(topic, system) {
-  const key = process.env.GROQ_API_KEY;
-  if (!key) return "No AI key configured. Add GROQ_API_KEY in Vercel.";
+Rules:
+- Include emojis
+- Use hashtags
+- Make it scroll-stopping
+- Add a call-to-action`,
+  blog: `You are a professional blog writer. Write a blog post outline/draft based on the user's topic.
+
+Rules:
+- Use clear headings
+- Include an engaging introduction
+- Add key points under each section
+- End with a conclusion`,
+  email: `You are an email marketing expert. Write a professional email based on the user's topic.
+
+Rules:
+- Compelling subject line
+- Engaging opening
+- Clear body with value
+- Strong call-to-action at the end`,
+  ad: `You are a copywriting expert specializing in ad copy. Create compelling ad text based on the user's topic.
+
+Rules:
+- Attention-grabbing headline
+- Clear value proposition
+- Urgency/scarcity elements
+- Strong CTA`,
+};
+
+const LENGTH_MAP: Record<string, string> = {
+  short: "Keep it concise and brief. Around 50-100 words.",
+  medium: "Write a standard length piece. Around 150-300 words.",
+  long: "Write a detailed, comprehensive piece. Around 400-600 words.",
+};
+
+const TONE_MAP: Record<string, string> = {
+  professional: "Use a professional, business-like tone.",
+  casual: "Use a casual, friendly, conversational tone.",
+  humorous: "Use a humorous, witty, light-hearted tone.",
+  persuasive: "Use a persuasive, compelling, action-driven tone.",
+};
+
+async function generateWithGemini(systemPrompt: string, userMessage: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    return generateMockContent(userMessage);
+  }
+
   try {
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "system", content: system }, { role: "user", content: topic }], temperature: 0.8, max_tokens: 1024 }),
-    });
-    const body = await r.text();
-    if (!r.ok) return "Groq API error (status " + r.status + "): " + body.substring(0, 200);
-    const d = JSON.parse(body);
-    return d.choices?.[0]?.message?.content || "AI returned empty. Try again.";
-  } catch (e) {
-    return "Fetch error: " + (e?.message || String(e));
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            { role: "user", parts: [{ text: `${systemPrompt}\n\nTopic: ${userMessage}` }] },
+          ],
+          generationConfig: {
+            temperature: 0.8,
+            maxOutputTokens: 1024,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      console.error("Gemini API error:", await response.text());
+      return generateMockContent(userMessage);
+    }
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Failed to generate content. Please try again.";
+  } catch (error) {
+    console.error("Gemini fetch error:", error);
+    return generateMockContent(userMessage);
   }
 }
 
-const PROMPTS = { social: "Create engaging social media post with emojis, hashtags, and CTA.", blog: "Write a blog draft with clear headings, intro, key points, and conclusion.", email: "Write a marketing email with subject line, engaging opening, value, and CTA.", ad: "Write ad copy with headline, value proposition, urgency, and strong CTA." };
-const TONES = { professional: "Professional tone.", casual: "Casual friendly tone.", humorous: "Witty humorous tone.", persuasive: "Persuasive action-driven tone." };
-const LENGTHS = { short: "50-100 words.", medium: "150-300 words.", long: "400-600 words." };
+function generateMockContent(topic: string): string {
+  return `# Generated Content for: ${topic}
 
-export async function POST(req) {
+This is a preview of your AI-generated content. When you deploy with your Gemini API key, real AI-generated content will appear here.
+
+---
+
+To enable real AI generation:
+1. Get your API key from ai.google.dev
+2. Add GEMINI_API_KEY to your .env file
+3. Redeploy on Vercel
+
+This preview uses mock content to demonstrate the workflow.`;
+}
+
+export async function POST(request: NextRequest) {
   try {
-    const supabase = db();
-    const session = req.cookies.get("session")?.value;
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const { data: user } = await supabase.from("users").select("id, credits").eq("session_token", session).single();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (user.credits <= 0) return NextResponse.json({ error: "No credits. Upgrade." }, { status: 403 });
-    const { type, topic, tone, length } = await req.json();
-    if (!type || !topic) return NextResponse.json({ error: "Type and topic required" }, { status: 400 });
-    if (!["social","blog","email","ad"].includes(type)) return NextResponse.json({ error: "Invalid type" }, { status: 400 });
-    const sys = (PROMPTS[type]||PROMPTS.social) + " " + (TONES[tone]||TONES.professional) + " " + (LENGTHS[length]||LENGTHS.medium);
-    const output = await ai(topic, sys);
-    await supabase.from("users").update({ credits: user.credits - 1 }).eq("id", user.id);
-    const { data: gen, error } = await supabase.from("generations").insert({ user_id: user.id, type, topic, tone: tone||"professional", length: length||"medium", output }).select("id,type,topic,tone,length,output,created_at").single();
-    if (error || !gen) return NextResponse.json({ error: "Failed to save" }, { status: 500 });
-    return NextResponse.json({ generation: { ...gen, createdAt: gen.created_at }, credits: user.credits - 1 });
-  } catch (e) { console.error(e); return NextResponse.json({ error: "Failed" }, { status: 500 }); }
+    const session = request.cookies.get("session")?.value;
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await db.user.findUnique({ where: { sessionToken: session } });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (user.credits <= 0) {
+      return NextResponse.json({ error: "No credits remaining. Upgrade your plan for more credits." }, { status: 403 });
+    }
+
+    const { type, topic, tone, length } = await request.json();
+
+    if (!type || !topic) {
+      return NextResponse.json({ error: "Content type and topic are required" }, { status: 400 });
+    }
+
+    const validTypes = ["social", "blog", "email", "ad"];
+    if (!validTypes.includes(type)) {
+      return NextResponse.json({ error: "Invalid content type" }, { status: 400 });
+    }
+
+    const systemPrompt = `${PROMPTS[type] || PROMPTS.social}\n\nTone: ${TONE_MAP[tone] || TONE_MAP.professional}\n\n${LENGTH_MAP[length] || LENGTH_MAP.medium}`;
+
+    const output = await generateWithGemini(systemPrompt, topic);
+
+    await db.user.update({ where: { id: user.id }, data: { credits: { decrement: 1 } } });
+
+    const generation = await db.generation.create({
+      data: { userId: user.id, type, topic, tone: tone || "professional", length: length || "medium", output },
+    });
+
+    const updatedUser = await db.user.findUnique({ where: { id: user.id } });
+
+    return NextResponse.json({
+      generation: { id: generation.id, type, topic, tone: generation.tone, length: generation.length, output: generation.output, createdAt: generation.createdAt },
+      credits: updatedUser?.credits || 0,
+    });
+  } catch (error) {
+    console.error("Generate error:", error);
+    return NextResponse.json({ error: "Failed to generate content" }, { status: 500 });
+  }
 }
