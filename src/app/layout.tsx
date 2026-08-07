@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   description: "Generate social media posts, blog drafts, email copy, and ad text in seconds. Powered by AI, designed for creators and businesses.",
   keywords: ["AI Content", "Content Creation", "AI Writer", "Social Media", "Blog Writer"],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/logo.svg",
   },
 };
 
