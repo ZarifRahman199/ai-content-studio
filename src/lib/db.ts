@@ -263,7 +263,6 @@ export const db = {
         tone: data.tone || "professional",
         length: data.length || "medium",
         output: data.output,
-        language: data.language || "en",
       };
       const { data: row, error } = await supabase.from("generations").insert(insertData).select().single();
       if (error) throw new Error(error.message);
