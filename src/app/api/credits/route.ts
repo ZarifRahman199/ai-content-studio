@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     if (action === "add" && amount && amount > 0) {
       const updated = await db.user.update({
         where: { id: user.id },
-        data: { credits: { increment: amount } },
+        data: { credits: user.credits + amount },
       });
       return NextResponse.json({ credits: updated.credits });
     }

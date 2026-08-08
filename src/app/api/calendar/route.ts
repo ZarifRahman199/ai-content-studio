@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { title, date, platform, status } = await request.json();
     if (!title || !date) return NextResponse.json({ error: "Title and date required" }, { status: 400 });
-    const event = await db.calendarEvent.create({ userId: user.id, title, date, platform: platform || "Instagram", status: status || "scheduled" });
+    const event = await db.calendarEvent.create({ data: { userId: user.id, title, date, platform: platform || "Instagram", status: status || "scheduled" } });
     return NextResponse.json(event, { status: 201 });
   } catch { return NextResponse.json({ error: "Failed" }, { status: 500 }); }
 }

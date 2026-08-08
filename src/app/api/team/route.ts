@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     if (user.plan !== "business") return NextResponse.json({ error: "Business plan required" }, { status: 403 });
     const { email, role } = await request.json();
     if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 });
-    const member = await db.teamMember.create({ userId: user.id, email, name: email.split("@")[0], role: role || "member" });
+    const member = await db.teamMember.create({ data: { userId: user.id, email, name: email.split("@")[0], role: role || "member" } });
     return NextResponse.json(member, { status: 201 });
   } catch { return NextResponse.json({ error: "Failed" }, { status: 500 }); }
 }

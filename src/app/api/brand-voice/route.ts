@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { name, tone, style, audience, keywords } = await request.json();
     if (!name) return NextResponse.json({ error: "Name required" }, { status: 400 });
-    const voice = await db.brandVoice.create({ userId: user.id, name, tone: tone || "", style: style || "", audience: audience || "", keywords: keywords || [] });
+    const voice = await db.brandVoice.create({ data: { userId: user.id, name, tone: tone || "", style: style || "", audience: audience || "", keywords: keywords || [] } });
     return NextResponse.json(voice, { status: 201 });
   } catch { return NextResponse.json({ error: "Failed" }, { status: 500 }); }
 }

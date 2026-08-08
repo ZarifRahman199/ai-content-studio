@@ -129,7 +129,8 @@ export async function POST(request: NextRequest) {
 
     const output = await generateWithGemini(systemPrompt, topic);
 
-    await db.user.update({ where: { id: user.id }, data: { credits: { decrement: 1 } } });
+    // Deduct credit (direct value, not Prisma increment)
+    await db.user.update({ where: { id: user.id }, data: { credits: user.credits - 1 } });
 
     const generation = await db.generation.create({
       data: { userId: user.id, type, topic, tone: tone || "professional", length: length || "medium", output },
