@@ -390,6 +390,7 @@ function SEOPanel({ credits, setCredits, darkMode, inputBg, cardBg, textSecondar
 function HashtagPanel({ darkMode, inputBg, cardBg, textSecondary }: any) {
   const [topic, setTopic] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
+  const hashChar = "#";
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
