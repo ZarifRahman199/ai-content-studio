@@ -646,8 +646,18 @@ function TeamPanel({ user, darkMode, inputBg, cardBg, textSecondary }: any) {
     <div className="max-w-3xl mx-auto">
       <Card className={cardBg}><CardHeader><CardTitle className="text-lg flex items-center gap-2"><Users className="w-5 h-5 text-emerald-500" />Team Workspaces</CardTitle></CardHeader><CardContent className="space-y-4">
         <p className={`text-sm ${textSecondary}`}>"Invite team members to collaborate. Business plan required for invitations to be accepted."</p>
-        <div className="flex gap-2"><Input placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} className={`flex-1 ${inputBg}`} /><select value={role} onChange={e =>
-          setRole(e.target.value)} className={`rounded-md border px-3 py-2 text-sm ${inputBg}`}><option value="member">Member</option><option value="admin">Admin</option><option value="viewer">Viewer</option></select><Button onClick={handleInvite} disabled={!email} className="bg-emerald-500 hover:bg-emerald-400 text-black"><Plus className="w-4 h-4 mr-1" />Invite</Button></div>
+        <div className="space-y-3">
+            <Input placeholder="colleague@company.com" value={email} onChange={e => setEmail(e.target.value)} className={inputBg} />
+            <div className="flex gap-2">
+              {["member", "admin", "viewer"].map(r => (
+                <button key={r} onClick={() => setRole(r)} className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all capitalize ${role === r ? "bg-emerald-500 text-black border-emerald-500" : cardBg}`}>
+                  {r}
+                </button>
+              ))}
+              <Button onClick={handleInvite} disabled={!email} className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black"><Plus className="w-4 h-4 mr-1" />Invite</Button>
+            </div>
+            {user.plan !== "business" && <p className={`text-xs ${textMuted}`}>Note: Recipients need a Business plan to accept invites.</p>}
+          </div>
       </CardContent></Card>
       <div className="mt-4 space-y-2">{members.map(m => (<Card key={m.id} className={cardBg}><CardContent className="p-3 flex items-center justify-between"><div className="flex items-center gap-3"><div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${darkMode ? "bg-gray-800 text-gray-300" : "bg-gray-100 text-gray-600"}`}>{(m.name || m.email).charAt(0).toUpperCase()}</div>
         <div><p className={`text-sm font-medium ${textSecondary}`}>{m.name || m.email}</p><p className={`text-xs ${textSecondary}`}>{m.role} · {m.acceptedAt ? "Joined" : "Pending"}</p></div></div><Badge variant="secondary" className="text-[10px] capitalize">{m.role}</Badge></CardContent></Card>))}</div>

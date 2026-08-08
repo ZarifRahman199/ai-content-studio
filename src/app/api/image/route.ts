@@ -16,9 +16,10 @@ export async function POST(request: NextRequest) {
     const { prompt, style } = await request.json();
     if (!prompt) return NextResponse.json({ error: "Prompt required" }, { status: 400 });
 
-    // Use pollinations.ai for free image generation
-    const encodedPrompt = encodeURIComponent(`${prompt}, ${style || "realistic"} style, high quality`);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true`;
+    // Use pollinations.ai with random seed for unique images each time
+    const seed = Math.floor(Math.random() * 999999999);
+    const encodedPrompt = encodeURIComponent(`${prompt}, ${style || "realistic"} style, high quality, unique composition`);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${seed}&timestamp=${Date.now()}`;
 
     // Deduct 2 credits
     await db.user.update({ where: { id: user.id }, data: { credits: user.credits - 2 } });
