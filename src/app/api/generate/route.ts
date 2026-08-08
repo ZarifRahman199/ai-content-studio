@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No credits remaining. Upgrade your plan for more credits." }, { status: 403 });
     }
 
-    const { type, topic, tone, length } = await request.json();
+    const { type, topic, tone, length, language } = await request.json();
 
     if (!type || !topic) {
       return NextResponse.json({ error: "Content type and topic are required" }, { status: 400 });
@@ -150,7 +150,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid content type" }, { status: 400 });
     }
 
-    const systemPrompt = `${PROMPTS[type] || PROMPTS.social}\n\nTone: ${TONE_MAP[tone] || TONE_MAP.professional}\n\n${LENGTH_MAP[length] || LENGTH_MAP.medium}`;
+    const LANGUAGE_MAP: Record<string, string> = { en: "", bn: "Write entirely in Bengali (Bangla).", hi: "Write entirely in Hindi.", es: "Write entirely in Spanish.", fr: "Write entirely in French.", ar: "Write entirely in Arabic.", zh: "Write entirely in Chinese (Simplified).", ja: "Write entirely in Japanese.", ko: "Write entirely in Korean.", de: "Write entirely in German.", pt: "Write entirely in Portuguese." };
+const langInstruction = LANGUAGE_MAP[language] || "";
+const systemPrompt = `${PROMPTS[type] || PROMPTS.social}\n\nTone: ${TONE_MAP[tone] || TONE_MAP.professional}\n\n${LENGTH_MAP[length] || LENGTH_MAP.medium}${langInstruction ? "\n\n" + langInstruction : ""}`;
 
     const output = await generateWithGroq(systemPrompt, topic);
 

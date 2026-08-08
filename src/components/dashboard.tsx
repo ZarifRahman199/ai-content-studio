@@ -585,7 +585,18 @@ function BrandVoicePanel({ darkMode, inputBg, cardBg, textSecondary }: any) {
         <Button onClick={handleSave} disabled={!name} className="bg-emerald-500 hover:bg-emerald-400 text-black"><Plus className="w-4 h-4 mr-2" />Save Voice</Button>
       </CardContent></Card>
       {voices.length > 0 && (<div className="mt-4 grid sm:grid-cols-2 gap-3">{voices.map(v => (<Card key={v.id} className={cardBg}><CardContent className="p-4"><div className="flex justify-between mb-2"><p className="text-sm font-medium">{v.name}</p><button onClick={() => handleDelete(v.id)} className="text-red-400"><Trash2 className="w-3.5 h-3.5" /></button></div>
-        <p className={`text-xs ${textSecondary}`}>{v.tone}</p><div className="flex flex-wrap gap-1 mt-2">{v.keywords?.map((k: string, i: number) => (<Badge key={i} variant="secondary" className="text-[10px]">{k}</Badge>))}</div></CardContent></Card>))}</div>)}
+        <p className={`text-xs ${textSecondary}`}>{v.tone} · {v.style}</p>
+                <p className={`text-[10px] ${textMuted}`}>Audience: {v.audience}</p>
+                <div className="flex flex-wrap gap-1 mt-2">{v.keywords?.map((k: string, i: number) => (<Badge key={i} variant="secondary" className="text-[10px]">{k}</Badge>))}</div></CardContent></Card>))}</div>)}
+      <Card className={cardBg}><CardHeader><CardTitle className="text-sm">How Brand Voice Works</CardTitle></CardHeader><CardContent className="space-y-3">
+          <p className={`text-sm ${textSecondary}`}>Brand Voice saves your tone, style, audience, and keywords so you can quickly reference them when generating content. Use your saved voice as a guide — copy the settings and paste them into the Generate panel for consistent, on-brand content every time.</p>
+          <div className={`p-3 rounded-lg ${darkMode ? "bg-gray-800/50" : "bg-gray-50"} space-y-1`}>
+            <p className={`text-xs font-medium ${textSecondary}`}>Tips:</p>
+            <p className={`text-xs ${textMuted}`}>1. Save a voice with your preferred tone, style, and audience</p>
+            <p className={`text-xs ${textMuted}`}>2. Add relevant keywords your brand frequently uses</p>
+            <p className={`text-xs ${textMuted}`}>3. Reference it when generating content for consistency</p>
+          </div>
+        </CardContent></Card>
     </div>
   );
 }
@@ -634,9 +645,9 @@ function TeamPanel({ user, darkMode, inputBg, cardBg, textSecondary }: any) {
   return (
     <div className="max-w-3xl mx-auto">
       <Card className={cardBg}><CardHeader><CardTitle className="text-lg flex items-center gap-2"><Users className="w-5 h-5 text-emerald-500" />Team Workspaces</CardTitle></CardHeader><CardContent className="space-y-4">
-        <p className={`text-sm ${textSecondary}`}>{user.plan === "business" ? "Invite team members and share credits." : "Upgrade to Business plan to invite team members."}</p>
-        <div className="flex gap-2"><Input placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} className={`flex-1 ${inputBg}`} disabled={user.plan !== "business"} /><select value={role} onChange={e =>
-          setRole(e.target.value)} className={`rounded-md border px-3 py-2 text-sm ${inputBg}`}><option value="member">Member</option><option value="admin">Admin</option><option value="viewer">Viewer</option></select><Button onClick={handleInvite} disabled={!email || user.plan !== "business"} className="bg-emerald-500 hover:bg-emerald-400 text-black"><Plus className="w-4 h-4 mr-1" />Invite</Button></div>
+        <p className={`text-sm ${textSecondary}`}>"Invite team members to collaborate. Business plan required for invitations to be accepted."</p>
+        <div className="flex gap-2"><Input placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} className={`flex-1 ${inputBg}`} /><select value={role} onChange={e =>
+          setRole(e.target.value)} className={`rounded-md border px-3 py-2 text-sm ${inputBg}`}><option value="member">Member</option><option value="admin">Admin</option><option value="viewer">Viewer</option></select><Button onClick={handleInvite} disabled={!email} className="bg-emerald-500 hover:bg-emerald-400 text-black"><Plus className="w-4 h-4 mr-1" />Invite</Button></div>
       </CardContent></Card>
       <div className="mt-4 space-y-2">{members.map(m => (<Card key={m.id} className={cardBg}><CardContent className="p-3 flex items-center justify-between"><div className="flex items-center gap-3"><div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${darkMode ? "bg-gray-800 text-gray-300" : "bg-gray-100 text-gray-600"}`}>{(m.name || m.email).charAt(0).toUpperCase()}</div>
         <div><p className={`text-sm font-medium ${textSecondary}`}>{m.name || m.email}</p><p className={`text-xs ${textSecondary}`}>{m.role} · {m.acceptedAt ? "Joined" : "Pending"}</p></div></div><Badge variant="secondary" className="text-[10px] capitalize">{m.role}</Badge></CardContent></Card>))}</div>
