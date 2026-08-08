@@ -630,7 +630,7 @@ function AnalyticsPanel({ darkMode, cardBg, textSecondary }: any) {
 
 // ── Team Panel ──
 function TeamPanel({ user, darkMode, inputBg, cardBg, textSecondary }: any) {
-  const [m[members, setMembers] = useState<any[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
 
