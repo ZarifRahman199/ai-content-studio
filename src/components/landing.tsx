@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles, Zap, Shield, Globe, PenLine, Mail, Megaphone, FileText, ArrowRight, Star, Check } from "lucide-react";
+import { Sparkles, Zap, Shield, Globe, PenLine, Mail, Megaphone, FileText, ArrowRight, Star, Check, Image, RefreshCw, Search, Hash, CalendarDays, LayoutTemplate, Mic, BarChart3, Users, Settings } from "lucide-react";
 
 interface LandingProps {
   onGetStarted: () => void;
@@ -12,20 +12,35 @@ interface LandingProps {
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
-  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.1, duration: 0.5, ease: "easeOut" } }),
+  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, duration: 0.5, ease: "easeOut" } }),
 };
 
 const features = [
-  { icon: PenLine, title: "Social Media Posts", desc: "Scroll-stopping content with emojis, hashtags, and CTAs that drive engagement." },
-  { icon: FileText, title: "Blog Drafts", desc: "Structured outlines and full drafts with compelling headlines and clear sections." },
-  { icon: Mail, title: "Email Copy", desc: "Subject lines that get opened and body copy that converts readers to customers." },
-  { icon: Megaphone, title: "Ad Text", desc: "High-converting ad copy with urgency, value props, and strong calls-to-action." },
+  { icon: PenLine, title: "Social Media Posts", desc: "Scroll-stopping content with emojis, hashtags, and CTAs." },
+  { icon: FileText, title: "Blog Drafts", desc: "Structured outlines and full drafts with compelling headlines." },
+  { icon: Mail, title: "Email Copy", desc: "Subject lines that get opened and body copy that converts." },
+  { icon: Megaphone, title: "Ad Text", desc: "High-converting ad copy with urgency and strong CTAs." },
+  { icon: Image, title: "AI Images", desc: "Generate stunning images from text descriptions." },
+  { icon: RefreshCw, title: "Content Rewriter", desc: "Repurpose content across platforms instantly." },
+  { icon: Search, title: "SEO Optimizer", desc: "Meta titles, descriptions, and keyword suggestions." },
+  { icon: Hash, title: "Hashtag Generator", desc: "Trending hashtags for maximum reach. Free!" },
+];
+
+const extraFeatures = [
+  { icon: CalendarDays, title: "Content Calendar", desc: "Plan and schedule posts across platforms." },
+  { icon: LayoutTemplate, title: "Template Library", desc: "12+ pre-made templates for every format." },
+  { icon: Mic, title: "Brand Voice", desc: "Save your tone so all content matches." },
+  { icon: BarChart3, title: "Analytics", desc: "Track generations, usage, and trends." },
+  { icon: Globe, title: "11 Languages", desc: "Bengali, Hindi, Spanish, French, Arabic, and more." },
+  { icon: Users, title: "Team Workspaces", desc: "Collaborate with your team on Business plan." },
+  { icon: Settings, title: "Dark/Light Mode", desc: "Choose your preferred theme." },
+  { icon: Star, title: "Referral Program", desc: "Earn 50 free credits per friend." },
 ];
 
 const benefits = [
   { icon: Zap, title: "10x Faster", desc: "Generate content in seconds, not hours. Your AI-powered writing assistant." },
   { icon: Shield, title: "Consistent Quality", desc: "Professional output every time. No more staring at blank screens." },
-  { icon: Globe, title: "Any Niche", desc: "Works for any industry, topic, or audience. Just describe what you need." },
+  { icon: Globe, title: "Any Niche, Any Language", desc: "Works for any industry in 11+ languages. Just describe what you need." },
 ];
 
 export function Landing({ onGetStarted, onLogin }: LandingProps) {
@@ -105,6 +120,37 @@ export function Landing({ onGetStarted, onLogin }: LandingProps) {
                       </div>
                       <h3 className="text-white font-semibold mb-2">{f.title}</h3>
                       <p className="text-white/50 text-sm leading-relaxed">{f.desc}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* More Features */}
+      <section className="py-20 px-4 sm:px-6 bg-black">
+        <div className="max-w-6xl mx-auto">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} className="text-center mb-14">
+            <motion.h2 variants={fadeUp} custom={0} className="text-3xl sm:text-4xl font-bold text-white mb-4">
+              And So Much More
+            </motion.h2>
+            <motion.p variants={fadeUp} custom={1} className="text-white/50 text-lg max-w-xl mx-auto">
+              Everything you need to create, manage, and scale your content strategy.
+            </motion.p>
+          </motion.div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {extraFeatures.map((f, i) => (
+              <motion.div key={f.title} initial="hidden" whileInView="visible" viewport={{ once: true }}>
+                <motion.div variants={fadeUp} custom={i}>
+                  <Card className="bg-white/5 border-white/10 hover:border-emerald-500/30 transition-all duration-300 h-full">
+                    <CardContent className="p-5">
+                      <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center mb-3">
+                        <f.icon className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <h3 className="text-white font-semibold text-sm mb-1">{f.title}</h3>
+                      <p className="text-white/50 text-xs leading-relaxed">{f.desc}</p>
                     </CardContent>
                   </Card>
                 </motion.div>
