@@ -1,13 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Use service_role key if available for bypassing RLS (server-side only)
-const supabase = createClient(
-  supabaseUrl,
-  supabaseAnonKey
-);
+const USE_SUPABASE = !!(supabaseUrl && supabaseAnonKey);
+
+const supabase = USE_SUPABASE ? createClient(supabaseUrl!, supabaseAnonKey!) : null;
 
 export interface StoredUser {
   id: string;
@@ -16,43 +14,43 @@ export interface StoredUser {
   name: string | null;
   credits: number;
   plan: string;
-  session_token: string | null;
-  created_at: string;
-  updated_at: string;
+  sessionToken: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface StoredGeneration {
   id: string;
-  user_id: string;
+  userId: string;
   type: string;
   topic: string;
   tone: string;
   length: string;
   output: string;
   language: string;
-  created_at: string;
+  createdAt: string;
 }
 
 export interface StoredCalendarEvent {
   id: string;
-  user_id: string;
+  userId: string;
   title: string;
   date: string;
   platform: string;
   status: string;
-  content_id?: string;
-  created_at: string;
+  contentId?: string;
+  createdAt: string;
 }
 
 export interface StoredBrandVoice {
   id: string;
-  user_id: string;
+  userId: string;
   name: string;
   tone: string;
   style: string;
   audience: string;
   keywords: string[];
-  created_at: string;
+  createdAt: string;
 }
 
 export interface StoredTemplate {
@@ -66,24 +64,24 @@ export interface StoredTemplate {
 
 export interface StoredTeamMember {
   id: string;
-  user_id: string;
+  userId: string;
   email: string;
   name: string;
   role: string;
-  invited_at: string;
-  accepted_at: string | null;
+  invitedAt: string;
+  acceptedAt: string | null;
 }
 
 export interface StoredReferral {
   id: string;
-  referrer_id: string;
+  referrerId: string;
   code: string;
   clicks: number;
   signups: number;
   credits: number;
 }
 
-// Convert snake_case from Supabase to camelCase for app compatibility
+// Convert snake_case from Supabase to camelCase
 function toCamelUser(row: any): StoredUser {
   if (!row) return null as any;
   return {
@@ -109,7 +107,7 @@ function toCamelGeneration(row: any): StoredGeneration {
     tone: row.tone,
     length: row.length,
     output: row.output,
-    language: row.language,
+    language: row.language || "en",
     createdAt: row.created_at,
   };
 }
@@ -172,7 +170,7 @@ function genId(): string {
 }
 function now(): string { return new Date().toISOString(); }
 
-// Templates (static, same as before)
+// Templates (static)
 const templates: StoredTemplate[] = [
   { id: "t1", category: "social", type: "instagram", title: "Instagram Product Launch", prompt: "Create an engaging Instagram caption for a product launch. Include emojis, hashtags, and a CTA.", isPremium: false },
   { id: "t2", category: "social", type: "twitter", title: "Twitter Thread (5 tweets)", prompt: "Write a viral Twitter thread with 5 tweets about {topic}. Make each tweet impactful.", isPremium: false },
@@ -188,9 +186,25 @@ const templates: StoredTemplate[] = [
   { id: "t12", category: "email", type: "sequence", title: "3-Email Drip Sequence", prompt: "Write a 3-email drip sequence for {topic}. Email 1: Welcome. Email 2: Value. Email 3: Conversion.", isPremium: true },
 ];
 
-export const db = {
+// ============================================================
+// In-memory fallback store (used when Supabase is not configured)
+// ============================================================
+const memUsers = new Map<string, StoredUser>();
+const memGenerations = new Map<string, StoredGeneration>();
+const memCalendarEvents = new Map<string, StoredCalendarEvent>();
+const memBrandVoices = new Map<string, StoredBrandVoice>();
+const memTeamMembers = new Map<string, StoredTeamMember>();
+const memReferrals = new Map<string, StoredReferral>();
+const memEmailIndex = new Map<string, string>();
+const memSessionIndex = new Map<string, string>();
+
+// ============================================================
+// Supabase-backed db operations
+// ============================================================
+const dbSupabase = {
   user: {
     findUnique: async ({ where }: { where: { email?: string; sessionToken?: string; id?: string } }) => {
+      if (!supabase) return null;
       if (where.id) {
         const { data, error } = await supabase.from("users").select("*").eq("id", where.id).single();
         if (error) return null;
@@ -209,6 +223,7 @@ export const db = {
       return null;
     },
     create: async ({ data }: { data: { email: string; password: string; name?: string; sessionToken?: string; credits?: number; plan?: string; referralCode?: string } }) => {
+      if (!supabase) throw new Error("No database");
       const id = genId();
       const insertData: any = {
         id,
@@ -222,7 +237,6 @@ export const db = {
       const { data: row, error } = await supabase.from("users").insert(insertData).select().single();
       if (error) throw new Error(error.message);
       const user = toCamelUser(row);
-      // Handle referral signup bonus
       if (data.referralCode) {
         const { data: refs } = await supabase.from("referrals").select("*").eq("code", data.referralCode);
         if (refs && refs.length > 0) {
@@ -234,6 +248,7 @@ export const db = {
       return user;
     },
     update: async ({ where, data }: { where: { id: string }; data: Partial<StoredUser> }) => {
+      if (!supabase) throw new Error("No database");
       const updateData: any = { updated_at: now() };
       if (data.sessionToken !== undefined) updateData.session_token = data.sessionToken;
       if (data.credits !== undefined) updateData.credits = data.credits;
@@ -244,6 +259,7 @@ export const db = {
       return toCamelUser(row);
     },
     updateMany: async ({ where, data }: { where: { sessionToken?: string }; data: Partial<StoredUser> }) => {
+      if (!supabase) throw new Error("No database");
       if (where.sessionToken) {
         const updateData: any = { updated_at: now() };
         if (data.sessionToken !== undefined) updateData.session_token = data.sessionToken;
@@ -254,6 +270,7 @@ export const db = {
   },
   generation: {
     create: async ({ data }: { data: any }) => {
+      if (!supabase) throw new Error("No database");
       const id = genId();
       const insertData = {
         id,
@@ -269,6 +286,7 @@ export const db = {
       return toCamelGeneration(row);
     },
     findMany: async ({ where, orderBy, take }: { where?: { userId: string }; orderBy?: { createdAt: string }; take?: number }) => {
+      if (!supabase) return [];
       let query = supabase.from("generations").select("*");
       if (where?.userId) query = query.eq("user_id", where.userId);
       if (orderBy?.createdAt === "desc") query = query.order("created_at", { ascending: false });
@@ -279,14 +297,17 @@ export const db = {
       return (data || []).map(toCamelGeneration);
     },
     findFirst: async ({ where }: { where: { id: string; userId: string } }) => {
+      if (!supabase) return null;
       const { data, error } = await supabase.from("generations").select("*").eq("id", where.id).eq("user_id", where.userId).single();
       if (error) return null;
       return toCamelGeneration(data);
     },
     delete: async ({ where }: { where: { id: string } }) => {
+      if (!supabase) return;
       await supabase.from("generations").delete().eq("id", where.id);
     },
     count: async ({ where }: { where?: { userId: string } }) => {
+      if (!supabase) return 0;
       let query = supabase.from("generations").select("*", { count: "exact", head: true });
       if (where?.userId) query = query.eq("user_id", where.userId);
       const { count, error } = await query;
@@ -296,6 +317,7 @@ export const db = {
   },
   calendarEvent: {
     create: async ({ data }: { data: any }) => {
+      if (!supabase) throw new Error("No database");
       const id = genId();
       const insertData = {
         id,
@@ -311,6 +333,7 @@ export const db = {
       return toCamelCalendarEvent(row);
     },
     findMany: async ({ where, orderBy }: { where?: { userId: string; date?: { gte?: string; lte?: string } }; orderBy?: { date: string } }) => {
+      if (!supabase) return [];
       let query = supabase.from("calendar_events").select("*");
       if (where?.userId) query = query.eq("user_id", where.userId);
       if (where?.date?.gte) query = query.gte("date", where.date.gte);
@@ -322,11 +345,13 @@ export const db = {
       return (data || []).map(toCamelCalendarEvent);
     },
     delete: async ({ where }: { where: { id: string } }) => {
+      if (!supabase) return;
       await supabase.from("calendar_events").delete().eq("id", where.id);
     },
   },
   brandVoice: {
     create: async ({ data }: { data: any }) => {
+      if (!supabase) throw new Error("No database");
       const id = genId();
       const insertData = {
         id,
@@ -342,6 +367,7 @@ export const db = {
       return toCamelBrandVoice(row);
     },
     findMany: async ({ where }: { where?: { userId: string } }) => {
+      if (!supabase) return [];
       let query = supabase.from("brand_voices").select("*");
       if (where?.userId) query = query.eq("user_id", where.userId);
       const { data, error } = await query;
@@ -349,11 +375,13 @@ export const db = {
       return (data || []).map(toCamelBrandVoice);
     },
     findFirst: async ({ where }: { where: { id: string; userId: string } }) => {
+      if (!supabase) return null;
       const { data, error } = await supabase.from("brand_voices").select("*").eq("id", where.id).eq("user_id", where.userId).single();
       if (error) return null;
       return toCamelBrandVoice(data);
     },
     delete: async ({ where }: { where: { id: string } }) => {
+      if (!supabase) return;
       await supabase.from("brand_voices").delete().eq("id", where.id);
     },
   },
@@ -370,6 +398,7 @@ export const db = {
   },
   teamMember: {
     create: async ({ data }: { data: any }) => {
+      if (!supabase) throw new Error("No database");
       const id = genId();
       const insertData = {
         id,
@@ -384,6 +413,7 @@ export const db = {
       return toCamelTeamMember(row);
     },
     findMany: async ({ where }: { where?: { userId: string } }) => {
+      if (!supabase) return [];
       let query = supabase.from("team_members").select("*");
       if (where?.userId) query = query.eq("user_id", where.userId);
       const { data, error } = await query;
@@ -391,11 +421,13 @@ export const db = {
       return (data || []).map(toCamelTeamMember);
     },
     delete: async ({ where }: { where: { id: string } }) => {
+      if (!supabase) return;
       await supabase.from("team_members").delete().eq("id", where.id);
     },
   },
   referral: {
     create: async ({ data }: { data: { referrerId: string } }) => {
+      if (!supabase) throw new Error("No database");
       const code = genId().substring(0, 8).toUpperCase();
       const id = genId();
       const insertData = {
@@ -411,6 +443,7 @@ export const db = {
       return toCamelReferral(row);
     },
     findFirst: async ({ where }: any) => {
+      if (!supabase) return null;
       if (where.referrerId) {
         const { data, error } = await supabase.from("referrals").select("*").eq("referrer_id", where.referrerId).single();
         if (error) return null;
@@ -424,6 +457,7 @@ export const db = {
       return null;
     },
     incrementClicks: async ({ where }: { where: { code: string } }) => {
+      if (!supabase) return null;
       const { data, error } = await supabase.from("referrals").select("*").eq("code", where.code).single();
       if (error) return null;
       const { data: row } = await supabase.from("referrals").update({ clicks: data.clicks + 1 }).eq("code", where.code).select().single();
@@ -432,17 +466,178 @@ export const db = {
   },
   stats: {
     getUserStats: async (userId: string) => {
+      if (!supabase) return { total: 0, byType: {}, byDay: {}, calendarEvents: 0 };
       const { data: gens } = await supabase.from("generations").select("*").eq("user_id", userId);
       const userGens = (gens || []).map(toCamelGeneration);
       const typeCounts: Record<string, number> = {};
       userGens.forEach(g => { typeCounts[g.type] = (typeCounts[g.type] || 0) + 1; });
       const byDay: Record<string, number> = {};
       userGens.forEach(g => { const day = g.createdAt.split("T")[0]; byDay[day] = (byDay[day] || 0) + 1; });
-      const { count: calCount } = await supabase.from("calendar_events").select("*", { count: "exact", head: true }).eq("user_id", userId);
-      return { total: userGens.length, byType: typeCounts, byDay, calendarEvents: calCount || 0 };
+      let calendarEvents = 0;
+      try {
+        const { count: calCount } = await supabase.from("calendar_events").select("*", { count: "exact", head: true }).eq("user_id", userId);
+        calendarEvents = calCount || 0;
+      } catch { /* table may not exist */ }
+      return { total: userGens.length, byType: typeCounts, byDay, calendarEvents };
     },
   },
-  // Legacy compat
   trackerCategory: { findMany: async () => [], count: async () => 0 },
   trackerEntry: { findMany: async () => [], count: async () => 0, aggregate: async () => ({ _sum: { value: 0 }, _avg: { value: 0 }, _max: { value: 0 }, _min: { value: 0 } }) },
 };
+
+// ============================================================
+// In-memory fallback db operations
+// ============================================================
+const dbMemory = {
+  user: {
+    findUnique: async ({ where }: { where: { email?: string; sessionToken?: string; id?: string } }) => {
+      if (where.email) { const id = memEmailIndex.get(where.email); return id ? (memUsers.get(id) || null) : null; }
+      if (where.sessionToken) { const id = memSessionIndex.get(where.sessionToken); return id ? (memUsers.get(id) || null) : null; }
+      if (where.id) return memUsers.get(where.id) || null;
+      return null;
+    },
+    create: async ({ data }: { data: { email: string; password: string; name?: string; sessionToken?: string; credits?: number; plan?: string; referralCode?: string } }) => {
+      const id = genId();
+      const user: StoredUser = { id, email: data.email, password: data.password, name: data.name || data.email.split("@")[0], credits: data.credits ?? 10, plan: data.plan || "free", sessionToken: data.sessionToken || null, createdAt: now(), updatedAt: now() };
+      memUsers.set(id, user);
+      memEmailIndex.set(data.email, id);
+      if (data.sessionToken) memSessionIndex.set(data.sessionToken, id);
+      return user;
+    },
+    update: async ({ where, data }: { where: { id: string }; data: Partial<StoredUser> }) => {
+      const user = memUsers.get(where.id);
+      if (!user) throw new Error("User not found");
+      const updated = { ...user, ...data, updatedAt: now() };
+      memUsers.set(where.id, updated);
+      if (data.sessionToken !== undefined) { if (user.sessionToken) memSessionIndex.delete(user.sessionToken); if (data.sessionToken) memSessionIndex.set(data.sessionToken, where.id); }
+      return updated;
+    },
+    updateMany: async ({ where, data }: { where: { sessionToken?: string }; data: Partial<StoredUser> }) => {
+      if (where.sessionToken) {
+        const userId = memSessionIndex.get(where.sessionToken);
+        if (userId) { const user = memUsers.get(userId); if (user) { memSessionIndex.delete(where.sessionToken); memUsers.set(userId, { ...user, ...data, updatedAt: now() }); } }
+      }
+      return { count: 1 };
+    },
+  },
+  generation: {
+    create: async ({ data }: { data: any }) => {
+      const id = genId();
+      const gen: StoredGeneration = { id, userId: data.userId, type: data.type, topic: data.topic, tone: data.tone || "professional", length: data.length || "medium", output: data.output, language: data.language || "en", createdAt: now() };
+      memGenerations.set(id, gen);
+      return gen;
+    },
+    findMany: async ({ where, orderBy, take }: { where?: { userId: string }; orderBy?: { createdAt: string }; take?: number }) => {
+      let results = Array.from(memGenerations.values());
+      if (where?.userId) results = results.filter(g => g.userId === where.userId);
+      if (orderBy?.createdAt === "desc") results = results.reverse();
+      if (take) results = results.slice(0, take);
+      return results;
+    },
+    findFirst: async ({ where }: { where: { id: string; userId: string } }) => {
+      const gen = memGenerations.get(where.id);
+      return gen && gen.userId === where.userId ? gen : null;
+    },
+    delete: async ({ where }: { where: { id: string } }) => { memGenerations.delete(where.id); },
+    count: async ({ where }: { where?: { userId: string } }) => {
+      if (where?.userId) return Array.from(memGenerations.values()).filter(g => g.userId === where.userId).length;
+      return memGenerations.size;
+    },
+  },
+  calendarEvent: {
+    create: async ({ data }: { data: any }) => {
+      const id = genId();
+      const evt: StoredCalendarEvent = { id, userId: data.userId, title: data.title, date: data.date, platform: data.platform || "Instagram", status: data.status || "scheduled", contentId: data.contentId, createdAt: now() };
+      memCalendarEvents.set(id, evt);
+      return evt;
+    },
+    findMany: async ({ where, orderBy }: { where?: { userId: string; date?: { gte?: string; lte?: string } }; orderBy?: { date: string } }) => {
+      let results = Array.from(memCalendarEvents.values());
+      if (where?.userId) results = results.filter(e => e.userId === where.userId);
+      if (where?.date?.gte) results = results.filter(e => e.date >= where.date!.gte!);
+      if (where?.date?.lte) results = results.filter(e => e.date <= where.date!.lte!);
+      if (orderBy?.date === "asc") results.sort((a, b) => a.date.localeCompare(b.date));
+      else results.sort((a, b) => b.date.localeCompare(a.date));
+      return results;
+    },
+    delete: async ({ where }: { where: { id: string } }) => { memCalendarEvents.delete(where.id); },
+  },
+  brandVoice: {
+    create: async ({ data }: { data: any }) => {
+      const id = genId();
+      const bv: StoredBrandVoice = { id, userId: data.userId, name: data.name, tone: data.tone || "", style: data.style || "", audience: data.audience || "", keywords: data.keywords || [], createdAt: now() };
+      memBrandVoices.set(id, bv);
+      return bv;
+    },
+    findMany: async ({ where }: { where?: { userId: string } }) => {
+      let results = Array.from(memBrandVoices.values());
+      if (where?.userId) results = results.filter(v => v.userId === where.userId);
+      return results;
+    },
+    findFirst: async ({ where }: { where: { id: string; userId: string } }) => {
+      const bv = memBrandVoices.get(where.id);
+      return bv && bv.userId === where.userId ? bv : null;
+    },
+    delete: async ({ where }: { where: { id: string } }) => { memBrandVoices.delete(where.id); },
+  },
+  template: {
+    findMany: async ({ where }: { where?: { category?: string; isPremium?: boolean } }) => {
+      let results = [...templates];
+      if (where?.category) results = results.filter(t => t.category === where.category);
+      if (where?.isPremium !== undefined) results = results.filter(t => t.isPremium === where.isPremium);
+      return results;
+    },
+    findFirst: async ({ where }: { where: { id: string } }) => { return templates.find(t => t.id === where.id) || null; },
+  },
+  teamMember: {
+    create: async ({ data }: { data: any }) => {
+      const id = genId();
+      const tm: StoredTeamMember = { id, userId: data.userId, email: data.email, name: data.name, role: data.role || "member", invitedAt: now(), acceptedAt: null };
+      memTeamMembers.set(id, tm);
+      return tm;
+    },
+    findMany: async ({ where }: { where?: { userId: string } }) => {
+      let results = Array.from(memTeamMembers.values());
+      if (where?.userId) results = results.filter(m => m.userId === where.userId);
+      return results;
+    },
+    delete: async ({ where }: { where: { id: string } }) => { memTeamMembers.delete(where.id); },
+  },
+  referral: {
+    create: async ({ data }: { data: { referrerId: string } }) => {
+      const code = genId().substring(0, 8).toUpperCase();
+      const id = genId();
+      const ref: StoredReferral = { id, referrerId: data.referrerId, code, clicks: 0, signups: 0, credits: 0 };
+      memReferrals.set(id, ref);
+      return ref;
+    },
+    findFirst: async ({ where }: any) => {
+      for (const ref of memReferrals.values()) {
+        if ("referrerId" in where && ref.referrerId === where.referrerId) return ref;
+        if ("code" in where && ref.code === where.code) return ref;
+      }
+      return null;
+    },
+    incrementClicks: async ({ where }: { where: { code: string } }) => {
+      for (const ref of memReferrals.values()) {
+        if (ref.code === where.code) { ref.clicks += 1; return ref; }
+      }
+      return null;
+    },
+  },
+  stats: {
+    getUserStats: async (userId: string) => {
+      const userGens = Array.from(memGenerations.values()).filter(g => g.userId === userId);
+      const typeCounts: Record<string, number> = {};
+      userGens.forEach(g => { typeCounts[g.type] = (typeCounts[g.type] || 0) + 1; });
+      const byDay: Record<string, number> = {};
+      userGens.forEach(g => { const day = g.createdAt.split("T")[0]; byDay[day] = (byDay[day] || 0) + 1; });
+      return { total: userGens.length, byType: typeCounts, byDay, calendarEvents: Array.from(memCalendarEvents.values()).filter(e => e.userId === userId).length };
+    },
+  },
+  trackerCategory: { findMany: async () => [], count: async () => 0 },
+  trackerEntry: { findMany: async () => [], count: async () => 0, aggregate: async () => ({ _sum: { value: 0 }, _avg: { value: 0 }, _max: { value: 0 }, _min: { value: 0 } }) },
+};
+
+// Export the right db based on whether Supabase is configured
+export const db = USE_SUPABASE ? dbSupabase : dbMemory;
