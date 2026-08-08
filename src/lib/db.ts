@@ -1,4 +1,12 @@
-// In-memory store for Vercel serverless (survives while function is warm)
+// Supabase-backed persistent store
+
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// ── Interfaces (same as before) ──
 
 export interface StoredUser {
   id: string;
@@ -31,7 +39,6 @@ export interface StoredCalendarEvent {
   date: string;
   platform: string;
   status: string;
-  contentId?: string;
   createdAt: string;
 }
 
@@ -74,186 +81,254 @@ export interface StoredReferral {
   credits: number;
 }
 
-const users = new Map<string, StoredUser>();
-const generations = new Map<string, StoredGeneration>();
-const calendarEvents = new Map<string, StoredCalendarEvent>();
-const brandVoices = new Map<string, StoredBrandVoice>();
-const teamMembers = new Map<string, StoredTeamMember>();
-const referrals = new Map<string, StoredReferral>();
-const emailIndex = new Map<string, string>();
-const sessionIndex = new Map<string, string>();
+// ── Helpers ──
 
-function genId(): string {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+function fromRow(row: any): any {
+  if (!row) return null;
+  const obj: any = { ...row };
+  // Convert snake_case to camelCase
+  if (obj.session_token !== undefined) { obj.sessionToken = obj.session_token; delete obj.session_token; }
+  if (obj.referral_code !== undefined) { obj.referralCode = obj.referral_code; delete obj.referral_code; }
+  if (obj.user_id !== undefined) { obj.userId = obj.user_id; delete obj.user_id; }
+  if (obj.created_at !== undefined) { obj.createdAt = obj.created_at; delete obj.created_at; }
+  if (obj.updated_at !== undefined) { obj.updatedAt = obj.updated_at; delete obj.updated_at; }
+  if (obj.is_premium !== undefined) { obj.isPremium = obj.is_premium; delete obj.is_premium; }
+  if (obj.invited_at !== undefined) { obj.invitedAt = obj.invited_at; delete obj.invited_at; }
+  if (obj.accepted_at !== undefined) { obj.acceptedAt = obj.accepted_at; delete obj.accepted_at; }
+  if (obj.referrer_id !== undefined) { obj.referrerId = obj.referrer_id; delete obj.referrer_id; }
+  // Parse keywords from JSON string if needed
+  if (typeof obj.keywords === "string") {
+    try { obj.keywords = JSON.parse(obj.keywords); } catch { obj.keywords = []; }
+  }
+  return obj;
 }
-function now(): string { return new Date().toISOString(); }
 
-// Templates (static)
-const templates: StoredTemplate[] = [
-  { id: "t1", category: "social", type: "instagram", title: "Instagram Product Launch", prompt: "Create an engaging Instagram caption for a product launch. Include emojis, hashtags, and a CTA.", isPremium: false },
-  { id: "t2", category: "social", type: "twitter", title: "Twitter Thread (5 tweets)", prompt: "Write a viral Twitter thread with 5 tweets about {topic}. Make each tweet impactful.", isPremium: false },
-  { id: "t3", category: "social", type: "linkedin", title: "LinkedIn Thought Leadership", prompt: "Write a professional LinkedIn post that positions the author as a thought leader on {topic}.", isPremium: false },
-  { id: "t4", category: "blog", type: "howto", title: "How-To Guide", prompt: "Write a comprehensive how-to guide about {topic} with clear steps, tips, and examples.", isPremium: false },
-  { id: "t5", category: "blog", type: "listicle", title: "Listicle Article", prompt: "Write an engaging listicle article about {topic} with 10 items, each with a brief explanation.", isPremium: false },
-  { id: "t6", category: "email", type: "newsletter", title: "Newsletter Welcome Email", prompt: "Write a warm welcome email for new subscribers. Introduce the brand, set expectations, and include a CTA.", isPremium: false },
-  { id: "t7", category: "email", type: "promo", title: "Promotional Email", prompt: "Write a high-converting promotional email for {topic}. Include urgency, benefits, social proof, and a strong CTA.", isPremium: true },
-  { id: "t8", category: "ad", type: "facebook", title: "Facebook Ad Copy", prompt: "Write compelling Facebook ad copy for {topic}. Include headline, primary text, description, and CTA.", isPremium: false },
-  { id: "t9", category: "ad", type: "google", title: "Google Search Ad", prompt: "Write Google Search ad copy for {topic}. Include 3 headline variations and 2 description variations.", isPremium: true },
-  { id: "t10", category: "social", type: "tiktok", title: "TikTok Caption + Hook", prompt: "Write a TikTok caption and hook line for a video about {topic}. Keep it short, trendy, and engaging.", isPremium: false },
-  { id: "t11", category: "blog", type: "seo", title: "SEO-Optimized Blog Post", prompt: "Write an SEO-optimized blog post about {topic}. Include meta title, meta description, headers, and keyword-rich content.", isPremium: true },
-  { id: "t12", category: "email", type: "sequence", title: "3-Email Drip Sequence", prompt: "Write a 3-email drip sequence for {topic}. Email 1: Welcome. Email 2: Value. Email 3: Conversion.", isPremium: true },
-];
+function toRow(obj: any): any {
+  const row: any = { ...obj };
+  if (row.sessionToken !== undefined) { row.session_token = row.sessionToken; delete row.sessionToken; }
+  if (row.referralCode !== undefined) { row.referral_code = row.referralCode; delete row.referralCode; }
+  if (row.userId !== undefined) { row.user_id = row.userId; delete row.userId; }
+  if (row.createdAt !== undefined) { row.created_at = row.createdAt; delete row.createdAt; }
+  if (row.updatedAt !== undefined) { row.updated_at = row.updatedAt; delete row.updatedAt; }
+  if (row.isPremium !== undefined) { row.is_premium = row.isPremium; delete row.isPremium; }
+  if (row.invitedAt !== undefined) { row.invited_at = row.invitedAt; delete row.invitedAt; }
+  if (row.acceptedAt !== undefined) { row.accepted_at = row.acceptedAt; delete row.acceptedAt; }
+  if (row.referrerId !== undefined) { row.referrer_id = row.referrerId; delete row.referrerId; }
+  // Stringify keywords array
+  if (Array.isArray(row.keywords)) { row.keywords = JSON.stringify(row.keywords); }
+  return row;
+}
+
+function stripId(obj: any): any {
+  const { id, ...rest } = obj;
+  return rest;
+}
+
+// ── Database Client ──
 
 export const db = {
   user: {
     findUnique: async ({ where }: { where: { email?: string; sessionToken?: string; id?: string } }) => {
-      if (where.email) { const id = emailIndex.get(where.email); return id ? (users.get(id) || null) : null; }
-      if (where.sessionToken) { const id = sessionIndex.get(where.sessionToken); return id ? (users.get(id) || null) : null; }
-      if (where.id) return users.get(where.id) || null;
+      if (where.email) {
+        const { data, error } = await supabase.from("users").select("*").eq("email", where.email).single();
+        if (error || !data) return null;
+        return fromRow(data) as StoredUser;
+      }
+      if (where.sessionToken) {
+        const { data, error } = await supabase.from("users").select("*").eq("session_token", where.sessionToken).single();
+        if (error || !data) return null;
+        return fromRow(data) as StoredUser;
+      }
+      if (where.id) {
+        const { data, error } = await supabase.from("users").select("*").eq("id", where.id).single();
+        if (error || !data) return null;
+        return fromRow(data) as StoredUser;
+      }
       return null;
     },
     create: async ({ data }: { data: { email: string; password: string; name?: string; sessionToken?: string; credits?: number; plan?: string; referralCode?: string } }) => {
-      const id = genId();
-      const user: StoredUser = { id, email: data.email, password: data.password, name: data.name || data.email.split("@")[0], credits: data.credits ?? 10, plan: data.plan || "free", sessionToken: data.sessionToken || null, createdAt: now(), updatedAt: now() };
-      users.set(id, user);
-      emailIndex.set(data.email, id);
-      if (data.sessionToken) sessionIndex.set(data.sessionToken, id);
+      const row = toRow({ ...data, updatedAt: new Date().toISOString() });
+      const { data: newUserData, error } = await supabase.from("users").insert(row).select().single();
+      if (error) throw new Error(error.message);
+      // Handle referral if referralCode provided
       if (data.referralCode) {
-        const ref = referrals.get(data.referralCode);
-        if (ref) { ref.signups += 1; const referrer = users.get(ref.referrerId); if (referrer) { referrer.credits += 50; } }
+        const { data: refData } = await supabase.from("referrals").select("*").eq("code", data.referralCode).single();
+        if (refData) {
+          await supabase.from("referrals").update({ signups: refData.signups + 1 }).eq("id", refData.id);
+          await supabase.from("users").update({ credits: newUserData.credits + 50 }).eq("id", refData.referrer_id);
+          newUserData.credits += 50;
+        }
       }
-      return user;
+      return fromRow(newUserData) as StoredUser;
     },
     update: async ({ where, data }: { where: { id: string }; data: Partial<StoredUser> }) => {
-      const user = users.get(where.id);
-      if (!user) throw new Error("User not found");
-      const updated = { ...user, ...data, updatedAt: now() };
-      users.set(where.id, updated);
-      if (data.sessionToken !== undefined) { if (user.sessionToken) sessionIndex.delete(user.sessionToken); if (data.sessionToken) sessionIndex.set(data.sessionToken, where.id); }
-      return updated;
+      const updateData: any = { updated_at: new Date().toISOString() };
+      // Handle increment/decrement for credits
+      if (typeof data.credits === "object" && data.credits !== null) {
+        const { data: currentUser } = await supabase.from("users").select("credits").eq("id", where.id).single();
+        const currentCredits = currentUser?.credits || 0;
+        if ("increment" in data.credits) {
+          updateData.credits = currentCredits + (data.credits as any).increment;
+        } else if ("decrement" in data.credits) {
+          updateData.credits = Math.max(0, currentCredits - (data.credits as any).decrement);
+        }
+      } else {
+        // Direct value update (e.g., sessionToken)
+        Object.assign(updateData, toRow(data));
+      }
+      const { data: updatedUser, error } = await supabase.from("users").update(updateData).eq("id", where.id).select().single();
+      if (error) throw new Error(error.message);
+      return fromRow(updatedUser) as StoredUser;
     },
     updateMany: async ({ where, data }: { where: { sessionToken?: string }; data: Partial<StoredUser> }) => {
       if (where.sessionToken) {
-        const userId = sessionIndex.get(where.sessionToken);
-        if (userId) { const user = users.get(userId); if (user) { sessionIndex.delete(where.sessionToken); users.set(userId, { ...user, ...data, updatedAt: now() }); } }
+        const updateData: any = { ...toRow(data), updated_at: new Date().toISOString() };
+        await supabase.from("users").update(updateData).eq("session_token", where.sessionToken);
       }
       return { count: 1 };
     },
   },
   generation: {
     create: async ({ data }: { data: Omit<StoredGeneration, "id" | "createdAt"> }) => {
-      const id = genId();
-      const gen: StoredGeneration = { id, ...data, createdAt: now() };
-      generations.set(id, gen);
-      return gen;
+      const row = toRow(data);
+      const { data: newGen, error } = await supabase.from("generations").insert(row).select().single();
+      if (error) throw new Error(error.message);
+      return fromRow(newGen) as StoredGeneration;
     },
     findMany: async ({ where, orderBy, take }: { where?: { userId: string }; orderBy?: { createdAt: string }; take?: number }) => {
-      let results = Array.from(generations.values());
-      if (where?.userId) results = results.filter(g => g.userId === where.userId);
-      if (orderBy?.createdAt === "desc") results = results.reverse();
-      if (take) results = results.slice(0, take);
-      return results;
+      let query = supabase.from("generations").select("*");
+      if (where?.userId) query = query.eq("user_id", where.userId);
+      if (orderBy?.createdAt === "desc") query = query.order("created_at", { ascending: false });
+      else if (orderBy) query = query.order("created_at", { ascending: true });
+      else query = query.order("created_at", { ascending: false });
+      if (take) query = query.limit(take);
+      const { data } = await query;
+      return (data || []).map(fromRow) as StoredGeneration[];
     },
     findFirst: async ({ where }: { where: { id: string; userId: string } }) => {
-      const gen = generations.get(where.id);
-      return gen && gen.userId === where.userId ? gen : null;
+      const { data } = await supabase.from("generations").select("*").eq("id", where.id).eq("user_id", where.userId).single();
+      return data ? fromRow(data) as StoredGeneration : null;
     },
-    delete: async ({ where }: { where: { id: string } }) => { generations.delete(where.id); },
+    delete: async ({ where }: { where: { id: string } }) => {
+      await supabase.from("generations").delete().eq("id", where.id);
+    },
     count: async ({ where }: { where?: { userId: string } }) => {
-      if (where?.userId) return Array.from(generations.values()).filter(g => g.userId === where.userId).length;
-      return generations.size;
+      let query = supabase.from("generations").select("*", { count: "exact", head: true });
+      if (where?.userId) query = query.eq("user_id", where.userId);
+      const { count } = await query;
+      return count || 0;
     },
   },
   calendarEvent: {
     create: async ({ data }: { data: Omit<StoredCalendarEvent, "id" | "createdAt"> }) => {
-      const id = genId();
-      const evt: StoredCalendarEvent = { id, ...data, createdAt: now() };
-      calendarEvents.set(id, evt);
-      return evt;
+      const row = toRow(data);
+      const { data: newEvt, error } = await supabase.from("calendar_events").insert(row).select().single();
+      if (error) throw new Error(error.message);
+      return fromRow(newEvt) as StoredCalendarEvent;
     },
     findMany: async ({ where, orderBy }: { where?: { userId: string; date?: { gte?: string; lte?: string } }; orderBy?: { date: string } }) => {
-      let results = Array.from(calendarEvents.values());
-      if (where?.userId) results = results.filter(e => e.userId === where.userId);
-      if (where?.date?.gte) results = results.filter(e => e.date >= where.date!.gte!);
-      if (where?.date?.lte) results = results.filter(e => e.date <= where.date!.lte!);
-      if (orderBy?.date === "asc") results.sort((a, b) => a.date.localeCompare(b.date));
-      else results.sort((a, b) => b.date.localeCompare(a.date));
-      return results;
+      let query = supabase.from("calendar_events").select("*");
+      if (where?.userId) query = query.eq("user_id", where.userId);
+      if (where?.date?.gte) query = query.gte("date", where.date.gte);
+      if (where?.date?.lte) query = query.lte("date", where.date.lte);
+      if (orderBy?.date === "asc") query = query.order("date", { ascending: true });
+      else query = query.order("date", { ascending: false });
+      const { data } = await query;
+      return (data || []).map(fromRow) as StoredCalendarEvent[];
     },
-    delete: async ({ where }: { where: { id: string } }) => { calendarEvents.delete(where.id); },
+    delete: async ({ where }: { where: { id: string } }) => {
+      await supabase.from("calendar_events").delete().eq("id", where.id);
+    },
   },
   brandVoice: {
     create: async ({ data }: { data: Omit<StoredBrandVoice, "id" | "createdAt"> }) => {
-      const id = genId();
-      const bv: StoredBrandVoice = { id, ...data, createdAt: now() };
-      brandVoices.set(id, bv);
-      return bv;
+      const row = toRow(data);
+      const { data: newBV, error } = await supabase.from("brand_voices").insert(row).select().single();
+      if (error) throw new Error(error.message);
+      return fromRow(newBV) as StoredBrandVoice;
     },
     findMany: async ({ where }: { where?: { userId: string } }) => {
-      let results = Array.from(brandVoices.values());
-      if (where?.userId) results = results.filter(v => v.userId === where.userId);
-      return results;
+      let query = supabase.from("brand_voices").select("*");
+      if (where?.userId) query = query.eq("user_id", where.userId);
+      const { data } = await query;
+      return (data || []).map(fromRow) as StoredBrandVoice[];
     },
     findFirst: async ({ where }: { where: { id: string; userId: string } }) => {
-      const bv = brandVoices.get(where.id);
-      return bv && bv.userId === where.userId ? bv : null;
+      const { data } = await supabase.from("brand_voices").select("*").eq("id", where.id).eq("user_id", where.userId).single();
+      return data ? fromRow(data) as StoredBrandVoice : null;
     },
-    delete: async ({ where }: { where: { id: string } }) => { brandVoices.delete(where.id); },
+    delete: async ({ where }: { where: { id: string } }) => {
+      await supabase.from("brand_voices").delete().eq("id", where.id);
+    },
   },
   template: {
     findMany: async ({ where }: { where?: { category?: string; isPremium?: boolean } }) => {
-      let results = [...templates];
-      if (where?.category) results = results.filter(t => t.category === where.category);
-      if (where?.isPremium !== undefined) results = results.filter(t => t.isPremium === where.isPremium);
-      return results;
+      let query = supabase.from("templates").select("*");
+      if (where?.category && where.category !== "all") query = query.eq("category", where.category);
+      if (where?.isPremium !== undefined) query = query.eq("is_premium", where.isPremium);
+      const { data } = await query;
+      return (data || []).map(fromRow) as StoredTemplate[];
     },
-    findFirst: async ({ where }: { where: { id: string } }) => { return templates.find(t => t.id === where.id) || null; },
+    findFirst: async ({ where }: { where: { id: string } }) => {
+      const { data } = await supabase.from("templates").select("*").eq("id", where.id).single();
+      return data ? fromRow(data) as StoredTemplate : null;
+    },
   },
   teamMember: {
     create: async ({ data }: { data: Omit<StoredTeamMember, "id" | "invitedAt" | "acceptedAt"> }) => {
-      const id = genId();
-      const tm: StoredTeamMember = { id, ...data, invitedAt: now(), acceptedAt: null };
-      teamMembers.set(id, tm);
-      return tm;
+      const row = toRow(data);
+      const { data: newTM, error } = await supabase.from("team_members").insert(row).select().single();
+      if (error) throw new Error(error.message);
+      return fromRow(newTM) as StoredTeamMember;
     },
     findMany: async ({ where }: { where?: { userId: string } }) => {
-      let results = Array.from(teamMembers.values());
-      if (where?.userId) results = results.filter(m => m.userId === where.userId);
-      return results;
+      let query = supabase.from("team_members").select("*");
+      if (where?.userId) query = query.eq("user_id", where.userId);
+      const { data } = await query;
+      return (data || []).map(fromRow) as StoredTeamMember[];
     },
-    delete: async ({ where }: { where: { id: string } }) => { teamMembers.delete(where.id); },
+    delete: async ({ where }: { where: { id: string } }) => {
+      await supabase.from("team_members").delete().eq("id", where.id);
+    },
   },
   referral: {
     create: async ({ data }: { data: { referrerId: string } }) => {
-      const code = genId().substring(0, 8).toUpperCase();
-      const id = genId();
-      const ref: StoredReferral = { id, referrerId: data.referrerId, code, clicks: 0, signups: 0, credits: 0 };
-      referrals.set(id, ref);
-      return ref;
+      const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const row = toRow({ referrerId: data.referrerId, code, clicks: 0, signups: 0, credits: 0 });
+      const { data: newRef, error } = await supabase.from("referrals").insert(row).select().single();
+      if (error) throw new Error(error.message);
+      return fromRow(newRef) as StoredReferral;
     },
     findFirst: async ({ where }: { where: { referrerId: string } | { code: string } }) => {
-      for (const ref of referrals.values()) {
-        if ("referrerId" in where && ref.referrerId === where.referrerId) return ref;
-        if ("code" in where && ref.code === where.code) return ref;
+      if ("referrerId" in where) {
+        const { data } = await supabase.from("referrals").select("*").eq("referrer_id", where.referrerId).single();
+        return data ? fromRow(data) as StoredReferral : null;
+      }
+      if ("code" in where) {
+        const { data } = await supabase.from("referrals").select("*").eq("code", where.code).single();
+        return data ? fromRow(data) as StoredReferral : null;
       }
       return null;
     },
     incrementClicks: async ({ where }: { where: { code: string } }) => {
-      for (const ref of referrals.values()) {
-        if (ref.code === where.code) { ref.clicks += 1; return ref; }
-      }
-      return null;
+      const { data: refData } = await supabase.from("referrals").select("*").eq("code", where.code).single();
+      if (!refData) return null;
+      const { data: updated } = await supabase.from("referrals").update({ clicks: refData.clicks + 1 }).eq("code", where.code).select().single();
+      return updated ? fromRow(updated) as StoredReferral : null;
     },
   },
-  // Stats
   stats: {
     getUserStats: async (userId: string) => {
-      const userGens = Array.from(generations.values()).filter(g => g.userId === userId);
+      const { data: gens } = await supabase.from("generations").select("*").eq("user_id", userId);
       const typeCounts: Record<string, number> = {};
-      userGens.forEach(g => { typeCounts[g.type] = (typeCounts[g.type] || 0) + 1; });
       const byDay: Record<string, number> = {};
-      userGens.forEach(g => { const day = g.createdAt.split("T")[0]; byDay[day] = (byDay[day] || 0) + 1; });
-      return { total: userGens.length, byType: typeCounts, byDay, calendarEvents: Array.from(calendarEvents.values()).filter(e => e.userId === userId).length };
+      (gens || []).forEach((g: any) => {
+        typeCounts[g.type] = (typeCounts[g.type] || 0) + 1;
+        const day = (g.created_at || "").split("T")[0];
+        if (day) byDay[day] = (byDay[day] || 0) + 1;
+      });
+      const { count: calCount } = await supabase.from("calendar_events").select("*", { count: "exact", head: true }).eq("user_id", userId);
+      return { total: gens?.length || 0, byType: typeCounts, byDay, calendarEvents: calCount || 0 };
     },
   },
   // Legacy compat
