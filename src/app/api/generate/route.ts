@@ -45,40 +45,42 @@ const TONE_MAP: Record<string, string> = {
   persuasive: "Use a persuasive, compelling, action-driven tone.",
 };
 
-async function generateWithGemini(systemPrompt: string, userMessage: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  
+async function generateWithGroq(systemPrompt: string, userMessage: string): Promise<string> {
+  // Support both GROQ_API_KEY and GEMINI_API_KEY for backward compat
+  const apiKey = process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY;
+
   if (!apiKey) {
     return generateMockContent(userMessage);
   }
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            { role: "user", parts: [{ text: `${systemPrompt}\n\nTopic: ${userMessage}` }] },
-          ],
-          generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: 1024,
-          },
-        }),
-      }
-    );
+    // Use Groq's OpenAI-compatible API
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Topic: ${userMessage}` },
+        ],
+        temperature: 0.8,
+        max_tokens: 1024,
+      }),
+    });
 
     if (!response.ok) {
-      console.error("Gemini API error:", await response.text());
+      console.error("Groq API error:", await response.text());
       return generateMockContent(userMessage);
     }
 
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Failed to generate content. Please try again.";
+    return data.choices?.[0]?.message?.content || "Failed to generate content. Please try again.";
   } catch (error) {
-    console.error("Gemini fetch error:", error);
+    console.error("Groq fetch error:", error);
     return generateMockContent(userMessage);
   }
 }
@@ -86,13 +88,13 @@ async function generateWithGemini(systemPrompt: string, userMessage: string): Pr
 function generateMockContent(topic: string): string {
   return `# Generated Content for: ${topic}
 
-This is a preview of your AI-generated content. When you deploy with your Gemini API key, real AI-generated content will appear here.
+This is a preview of your AI-generated content. When you deploy with your API key, real AI-generated content will appear here.
 
 ---
 
 To enable real AI generation:
-1. Get your API key from ai.google.dev
-2. Add GEMINI_API_KEY to your .env file
+1. Get your API key from console.groq.com
+2. Add GROQ_API_KEY to your Vercel environment variables
 3. Redeploy on Vercel
 
 This preview uses mock content to demonstrate the workflow.`;
@@ -127,9 +129,9 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = `${PROMPTS[type] || PROMPTS.social}\n\nTone: ${TONE_MAP[tone] || TONE_MAP.professional}\n\n${LENGTH_MAP[length] || LENGTH_MAP.medium}`;
 
-    const output = await generateWithGemini(systemPrompt, topic);
+    const output = await generateWithGroq(systemPrompt, topic);
 
-    // Deduct credit (direct value, not Prisma increment)
+    // Deduct credit
     await db.user.update({ where: { id: user.id }, data: { credits: user.credits - 1 } });
 
     const generation = await db.generation.create({
