@@ -151,7 +151,7 @@ export function Dashboard({ user, onLogout, darkMode, onToggleDark }: { user: Us
           {activePanel === "images" && <ImagePanel credits={credits} setCredits={setCredits} darkMode={darkMode} inputBg={inputBg} cardBg={cardBg} textSecondary={textSecondary} />}
           {activePanel === "rewriter" && <RewriterPanel credits={credits} setCredits={setCredits} fetchHistory={fetchHistory} darkMode={darkMode} inputBg={inputBg} cardBg={cardBg} textSecondary={textSecondary} />}
           {activePanel === "seo" && <SEOPanel credits={credits} setCredits={setCredits} darkMode={darkMode} inputBg={inputBg} cardBg={cardBg} textSecondary={textSecondary} />}
-          {activePanel === "hashtags" && <HashtagPanel darkMode={darkMode} inputBg={inputBg} cardBg={cardBg} textSecondary={textSecondary} />}
+          {activePanel === "hashtags" && <HashtagPanel credits={credits} setCredits={setCredits} fetchHistory={fetchHistory} darkMode={darkMode} inputBg={inputBg} cardBg={cardBg} textSecondary={textSecondary} />}
           {activePanel === "calendar" && <CalendarPanel darkMode={darkMode} cardBg={cardBg} textSecondary={textSecondary} inputBg={inputBg} textMuted={textMuted} />}
           {activePanel === "templates" && <TemplatesPanel credits={credits} setCredits={setCredits} fetchHistory={fetchHistory} darkMode={darkMode} inputBg={inputBg} cardBg={cardBg} textSecondary={textSecondary} textMuted={textMuted} />}
           {activePanel === "brand" && <BrandVoicePanel darkMode={darkMode} inputBg={inputBg} cardBg={cardBg} textSecondary={textSecondary} />}
@@ -400,7 +400,7 @@ function SEOPanel({ credits, setCredits, darkMode, inputBg, cardBg, textSecondar
 }
 
 // ── Hashtag Generator Panel ──
-function HashtagPanel({ darkMode, inputBg, cardBg, textSecondary }: any) {
+function HashtagPanel({ credits, setCredits, fetchHistory, darkMode, inputBg, cardBg, textSecondary }: any) {
   const [topic, setTopic] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -412,6 +412,7 @@ function HashtagPanel({ darkMode, inputBg, cardBg, textSecondary }: any) {
     try {
       const res = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "hashtags", topic: topic.trim(), tone: "professional", length: "short", language: "en" }) });
       const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Failed to generate"); return; }
       if (data.generation?.output) {
         const tags = data.generation.output.match(/#\w+/g) || [];
         setHashtags(tags.length > 0 ? tags : data.generation.output.split(",").map((t: string) => t.trim().replace(/^#/, "#")));
@@ -425,9 +426,9 @@ function HashtagPanel({ darkMode, inputBg, cardBg, textSecondary }: any) {
       <Card className={cardBg}>
         <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Hash className="w-5 h-5 text-emerald-500" />Hashtag Generator</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <p className={`text-sm ${textSecondary}`}>Generate trending hashtags for your social media posts. Free — no credits needed.</p>
+          <p className={`text-sm ${textSecondary}`}>Generate trending hashtags for your social media posts. Uses 1 credit.</p>
           <div className="space-y-2"><Label className={textSecondary}>Topic</Label><Input placeholder="e.g., sustainable fashion, tech startup..." value={topic} onChange={e => setTopic(e.target.value)} className={inputBg} /></div>
-          <Button onClick={handleGenerate} disabled={generating || !topic.trim()} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold h-11">{generating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</> : <><Hash className="w-4 h-4 mr-2" />Generate Hashtags (Free)</>}</Button>
+          <Button onClick={handleGenerate} disabled={generating || !topic.trim()} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold h-11">{generating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</> : <><Hash className="w-4 h-4 mr-2" />Generate Hashtags (1 credit)</>}</Button>
           {hashtags.length > 0 && (
             <div className="mt-4">
               <div className="flex items-center justify-between mb-2">
