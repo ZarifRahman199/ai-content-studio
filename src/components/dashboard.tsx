@@ -237,7 +237,7 @@ function GeneratePanel({ credits, setCredits, fetchHistory, darkMode, inputBg, t
 
   const handleCopy = async () => { if (!output) return; await navigator.clipboard.writeText(output); setCopied(true); toast.success("Copied!"); setTimeout(() => setCopied(false), 2000); };
   const handleExportText = () => { if (!output) return; const blob = new Blob([output], { type: "text/plain" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "content.txt"; a.click(); };
-  const handleExportHTML = () => { if (!output) return; const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Content</title><style>body{font-family:system-ui;max-width:700px;margin:2rem auto;padding:0 1rem;line-height:1.7;}</style></head><body>${output.replace(/\n/g, "<br>")}</body></html>`; const blob = new Blob([h[h[html], { type: "text/html" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "content.html"; a.click(); };
+  const handleExportHTML = () => { if (!output) return; const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Content</title><style>body{font-family:system-ui;max-width:700px;margin:2rem auto;padding:0 1rem;line-height:1.7;}</style></head><body>${output.replace(/\n/g, "<br>")}</body></html>`; const blob = new Blob([html], { type: "text/html" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "content.html"; a.click(); };
 
   return (
     <div className="max-w-5xl mx-auto">
