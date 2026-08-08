@@ -386,6 +386,7 @@ function SEOPanel({ credits, setCredits, darkMode, inputBg, cardBg, textSecondar
 }
 
 // ── Hashtag Generator Panel ──
+// ── Hashtag Generator Panel ──
 function HashtagPanel({ darkMode, inputBg, cardBg, textSecondary }: any) {
   const [topic, setTopic] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
@@ -406,6 +407,8 @@ function HashtagPanel({ darkMode, inputBg, cardBg, textSecondary }: any) {
     } catch { toast.error("Network error"); } finally { setGenerating(false); }
   };
 
+  const hashPrefix = "#";
+
   return (
     <div className="max-w-3xl mx-auto">
       <Card className={cardBg}>
@@ -414,14 +417,28 @@ function HashtagPanel({ darkMode, inputBg, cardBg, textSecondary }: any) {
           <p className={`text-sm ${textSecondary}`}>Generate trending hashtags for your social media posts. Free — no credits needed.</p>
           <div className="space-y-2"><Label className={textSecondary}>Topic</Label><Input placeholder="e.g., sustainable fashion, tech startup..." value={topic} onChange={e => setTopic(e.target.value)} className={inputBg} /></div>
           <Button onClick={handleGenerate} disabled={generating || !topic.trim()} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold h-11">{generating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</> : <><Hash className="w-4 h-4 mr-2" />Generate Hashtags (Free)</>}</Button>
-          {hashtags.length > 0 && (<div className="mt-4"><div className="flex items-center justify-between mb-2"><p className="text-sm font-medium">{hashtags.length} hashtags</p><Button variant="ghost" size="sm" onClick={() => { navigator.clipboard.writeText(hashtags.join(" ")); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>{copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <><Copy className="w-3.5 h-3.5" /><span className="ml-1 text-xs">{copied ? "Copied!" : "Copy All"}</span></></Button></div><div className="flex flex-wrap gap-2">{hashtags.map((tag, i) => (<span key={i} className={`px-3 py-1.5 rounded-full text-xs font-medium ${darkMode ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border border-emerald-200"}`}>{tag.startsWith("#") ? tag : "#" + tag}</span>))}</div></div>)}
+          {hashtags.length > 0 && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium">{hashtags.length} hashtags</p>
+                <Button variant="ghost" size="sm" onClick={() => { navigator.clipboard.writeText(hashtags.join(" ")); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <><Copy className="w-3.5 h-3.5" /><span className="ml-1 text-xs">Copy All</span></>}
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {hashtags.map((tag, i) => (
+                  <span key={i} className={`px-3 py-1.5 rounded-full text-xs font-medium ${darkMode ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border border-emerald-200"}`}>
+                    {tag.startsWith(hashPrefix) ? tag : hashPrefix + tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
-
-// ── Calendar Panel ──
 function CalendarPanel({ darkMode, cardBg, textSecondary }: any) {
   const [events, setEvents] = useState<any[]>([]);
   const [title, setTitle] = useState("");
