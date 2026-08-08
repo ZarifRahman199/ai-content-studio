@@ -51,40 +51,40 @@ export function AuthModal({ open, onOpenChange, mode, onSwitchMode, onSuccess }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-white border-gray-200">
+      <DialogContent className="sm:max-w-md bg-gray-900 border-gray-700">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-black" />
             </div>
-            <DialogTitle className="text-xl">{mode === "signup" ? "Create your account" : "Welcome back"}</DialogTitle>
+            <DialogTitle className="text-xl text-white">{mode === "signup" ? "Create your account" : "Welcome back"}</DialogTitle>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-gray-400">
             {mode === "signup" ? "Get 10 free credits to start creating content." : "Log in to your ContentStudio account."}
           </p>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           {mode === "signup" && (
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Label htmlFor="name" className="text-gray-300">Name</Label>
+              <Input id="name" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} className="bg-gray-800 border-gray-600 text-white placeholder:text-gray-500" />
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Label htmlFor="email" className="text-gray-300">Email</Label>
+            <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="bg-gray-800 border-gray-600 text-white placeholder:text-gray-500" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" placeholder="Min 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+            <Label htmlFor="password" className="text-gray-300">Password</Label>
+            <Input id="password" type="password" placeholder="Min 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="bg-gray-800 border-gray-600 text-white placeholder:text-gray-500" />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-red-400">{error}</p>}
           <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold" disabled={loading}>
             {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</> : mode === "signup" ? "Create Account" : "Log In"}
           </Button>
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-sm text-gray-400">
             {mode === "signup" ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button type="button" onClick={onSwitchMode} className="text-emerald-600 hover:underline font-medium">
+            <button type="button" onClick={onSwitchMode} className="text-emerald-400 hover:underline font-medium">
               {mode === "signup" ? "Log in" : "Sign up"}
             </button>
           </p>
