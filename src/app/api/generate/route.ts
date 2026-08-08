@@ -30,6 +30,29 @@ Rules:
 - Clear value proposition
 - Urgency/scarcity elements
 - Strong CTA`,
+  rewrite: `You are a content repurposing expert. Take the user's existing content and rewrite/repurpose it for the target platform.
+
+Rules:
+- Maintain the core message and key points
+- Adapt tone and format for the target platform
+- Keep it engaging and platform-appropriate
+- Optimize length for the platform`,
+  seo: `You are an SEO expert. Generate SEO-optimized metadata and content structure based on the user's topic.
+
+Rules:
+- Generate a compelling meta title (under 60 characters)
+- Write a meta description (under 160 characters)
+- Suggest 10-15 relevant keywords
+- Provide header structure (H1, H2, H3)
+- Include internal linking suggestions`,
+  hashtags: `You are a social media hashtag expert. Generate relevant, trending hashtags for the given topic.
+
+Rules:
+- Generate 20-30 hashtags
+- Mix popular, niche, and trending hashtags
+- Include branded hashtag suggestions
+- Organize by category (popular, niche, trending)
+- Use only the hashtag symbol and words, no other formatting`,
 };
 
 const LENGTH_MAP: Record<string, string> = {
@@ -122,7 +145,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Content type and topic are required" }, { status: 400 });
     }
 
-    const validTypes = ["social", "blog", "email", "ad"];
+    const validTypes = ["social", "blog", "email", "ad", "rewrite", "seo", "hashtags"];
     if (!validTypes.includes(type)) {
       return NextResponse.json({ error: "Invalid content type" }, { status: 400 });
     }
