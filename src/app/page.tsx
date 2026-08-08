@@ -18,6 +18,7 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("signup");
+  const [darkMode, setDarkMode] = useState(true);
 
   useEffect(() => {
     fetch("/api/auth")
@@ -67,7 +68,7 @@ export default function Page() {
   }
 
   if (user) {
-    return <Dashboard user={user} onLogout={handleLogout} />;
+    return <Dashboard user={user} onLogout={handleLogout} darkMode={darkMode} onToggleDark={() => setDarkMode(!darkMode)} />;
   }
 
   return (
